@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">AudioApp2</string>
+    <string name="action_settings">Settings</string>
+    <string name="action_shuffle">Shuffle Songs</string>
+
+    <string name="settingsTitle">App Settings</string>
+    <string name="labelMaxListSize">Enter Max List Size</string>
+    <string name="MaxListSize">Enter Max List Size</string>
+    <string name="saveDetails">Save</string>
+    <string name="cancelDetails">Cancel</string>
+
+</resources>
