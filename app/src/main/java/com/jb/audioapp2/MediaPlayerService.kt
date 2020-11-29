@@ -62,8 +62,8 @@ class MediaPlayerService : Service(), OnCompletionListener,
     private var transportControls: MediaControllerCompat.TransportControls? = null
 
     //new - Oct 2020 *****
-    var startIndex = 0
-    var mMainActivity: MainActivity = MainActivity()
+    var startIndex = 0  //end
+    //var mMainActivity: MainActivity = MainActivity()
 
     //
     //@RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -367,7 +367,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
         }
 
         //new - Oct 2020 *****
-        mMainActivity.title = "Playing song " + (audioIndex + 1) + " of " + audioList?.size
+        //mMainActivity.title = "Playing song " + (audioIndex + 1) + " of " + audioList?.size
         //end new
     }
 
@@ -648,7 +648,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
                 .setLargeIcon(largeIcon)
                 .setSmallIcon(android.R.drawable.stat_sys_headset)
                 // Set Notification content information
-                .setContentText("$songCount - activeAudio?.artist") //new Nov 2020 *****
+                .setContentText("$songCount - " + activeAudio?.artist) //new Nov 2020 *****
                 //.setContentTitle(activeAudio?.album)
                 //.setContentInfo(activeAudio?.title) // Add playback actions
                 .setContentTitle(activeAudio?.title)

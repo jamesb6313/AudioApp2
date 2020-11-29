@@ -1,6 +1,5 @@
 package com.jb.audioapp2
 
-import android.annotation.SuppressLint
 import android.util.Log
 import androidx.recyclerview.widget.RecyclerView
 import android.view.LayoutInflater
@@ -20,26 +19,15 @@ class MySongRecyclerViewAdapter : BaseRecyclerViewAdapter<AudioSongs>(){
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         val myHolder = holder as? MyViewHolder
-
-        //new ***** Nov 2020
-        var mySelectedPosition: Boolean = false
-
-        if (myHolder?.selectedPosition == position)
-            mySelectedPosition = true;
-
-        //    myHolder?.itemView.setBackgroundColor()//end
-        myHolder?.setUpView(song = getItem(position), mySelectedPosition = mySelectedPosition)
+        myHolder?.setUpView(song = getItem(position))
     }
 
 
 
     inner class MyViewHolder(mView: View) : RecyclerView.ViewHolder(mView),
         View.OnClickListener {
-        //new ***** Nov 2020
-        var selectedPosition = -1 //end
         private val mTitleTextView: TextView = mView.title
         private val mArtistTextView: TextView = mView.artist
-        private val mPlayedTextView: TextView = mView.played
 
         init {
             mView.setOnClickListener(this)
@@ -51,22 +39,13 @@ class MySongRecyclerViewAdapter : BaseRecyclerViewAdapter<AudioSongs>(){
                     "'"
         }
 
-        @SuppressLint("SetTextI18n")
-        fun setUpView(song: AudioSongs?, mySelectedPosition : Boolean) {
+        fun setUpView(song: AudioSongs?) {
             mTitleTextView.text = song?.title
             mArtistTextView.text = song?.artist
-            mPlayedTextView.text = "Not Played"
-            if (mySelectedPosition) {
-                mPlayedTextView.text = "Played"
-                Log.i("Testing info", this.toString() + " Played")
-            }
         }
 
         override fun onClick(v: View?) {
             itemClickListener.onItemClick(adapterPosition, v)
-            //new ***** Nov 2020
-            selectedPosition= (adapterPosition + 1)
-            val positionClick : Int = (adapterPosition + 1)//end
             Log.i("Testing info", "onClick() - current position is $adapterPosition")
         }
     }

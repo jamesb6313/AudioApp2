@@ -47,14 +47,6 @@
                 android:textAppearance="?android:attr/textAppearanceLarge"
                 android:textColor="@color/primary_text"
                 android:textStyle="bold" />
-            <TextView
-                android:id="@+id/played"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Played"
-                android:textAppearance="?android:attr/textAppearanceLarge"
-                android:textColor="@color/primary_text"
-                android:textStyle="bold" />
         </LinearLayout>
 
 
