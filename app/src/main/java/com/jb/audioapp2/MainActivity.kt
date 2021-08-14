@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
             recyclerView.addItemDecoration(DividerItemDecoration(this@MainActivity, LinearLayoutManager.VERTICAL))
             recyclerView.adapter = mAdapter
 
-            //new sept 2020 *****
+            //newcode sept 2020 *****
             this.title = getString(R.string.app_name) + " Songs Found: " + audioList?.size
         }
     }
@@ -117,10 +117,10 @@ class MainActivity : AppCompatActivity() {
 
     //loadAudio
     //////////////////////////////////////////////////////////
-    private val acceptedExtensions = arrayOf(
+/*    private val acceptedExtensions = arrayOf(
             "mp3", "mp2", "wav", "flac", "ogg", "au", "snd", "mid", "midi", "kar"
             , "mga", "aif", "aiff", "aifc", "m3u", "oga", "spx"
-    )
+    )*/
 
     private fun loadAudio() {
         val contentResolver = contentResolver
@@ -151,7 +151,7 @@ class MainActivity : AppCompatActivity() {
         //todo - catch list = null error. was related to MediaPlayerService - line 472 register_playNewAudio() see also line193 PlayAudio()
         // added android:requestLegacyExternalStorage="true" to Manifest which resoled list = null
         //See:https://stackoverflow.com/questions/57116335/environment-getexternalstoragedirectory-deprecated-in-api-level-29-java
-//Start new
+//newcode
         try {
             Log.e("Size of list ", "" + list!!.size)
             for (i in list.indices) {
@@ -167,7 +167,7 @@ class MainActivity : AppCompatActivity() {
             myShowErrorDlg("Error = " + e.message)
 // Cannot use Toast in catch stmt
 //            Toast.makeText(this, " Error = " + e.message, Toast.LENGTH_SHORT).show()
-// End new
+//newcode - end
         }
 
     }
@@ -238,6 +238,11 @@ class MainActivity : AppCompatActivity() {
     class AudioFilter : FileFilter {
         // only want to see the following audio file types
         private val extension = arrayOf(
+            ".mp3",
+            ".wav",
+            ".mp4"
+        )
+/*        private val extension = arrayOf(
                 ".aac",
                 ".mp3",
                 ".wav",
@@ -248,7 +253,7 @@ class MainActivity : AppCompatActivity() {
                 ".m4a",
                 ".amr",
                 ".flac"
-        )
+        )*/
 
         override fun accept(pathname: File): Boolean {
 
@@ -289,7 +294,7 @@ class MainActivity : AppCompatActivity() {
     private fun playAudio(audioIndex: Int) {
         //Check is service is active
         if (!serviceBound) {
-            //new - Oct 2020 *****
+            //newcode - Oct 2020 *****
             initialSongIndex = audioIndex
             Log.i("1 Song start index", "initialSongIndex = $initialSongIndex")
             //end
@@ -299,7 +304,7 @@ class MainActivity : AppCompatActivity() {
             storage.storeAudio(audioList)
             storage.storeAudioIndex(audioIndex)
             val playerIntent = Intent(this, MediaPlayerService::class.java)
-            playerIntent.putExtra("StartIndex", initialSongIndex) //new - Oct 2020 *****
+            playerIntent.putExtra("StartIndex", initialSongIndex) //newcode - Oct 2020 *****
             startService(playerIntent)
             bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE)
         } else {
@@ -317,9 +322,9 @@ class MainActivity : AppCompatActivity() {
             sendBroadcast(broadcastIntent)
         }
 
-        //new - Oct 2020 *****
+        //newcode - Oct 2020 *****
         this.title = "Playing song " + (audioIndex + 1) + " of " + audioList?.size
-        //end new
+        //newcode - end
     }
 
     override fun onSaveInstanceState(

@@ -44,7 +44,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
     private var mediaPlayer: MediaPlayer? = null
 
     //path to the audio file
-    private val mediaFile: String? = null
+    //newcode - Dec 2020 ***** private val mediaFile: String? = null
 
     //Used to pause/resume MediaPlayer
     private var resumePosition = 0
@@ -61,9 +61,9 @@ class MediaPlayerService : Service(), OnCompletionListener,
     private var mediaSession: MediaSessionCompat? = null
     private var transportControls: MediaControllerCompat.TransportControls? = null
 
-    //new - Oct 2020 *****
-    var startIndex = 0  //end
-    //var mMainActivity: MainActivity = MainActivity()
+    //newcode - Oct 2020 *****
+    private var startIndex = 0
+    var mMainActivity: MainActivity = MainActivity() //newcode - end
 
     //
     //@RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
@@ -108,7 +108,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
 
                     if (keyEvent.action == KeyEvent.ACTION_UP) {
                         Toast.makeText(this@MediaPlayerService, "Button Up - Media Button Event: " + keyEvent.keyCode, Toast.LENGTH_LONG).show()
-//Start new
+//newcode - start
                     if (keyEvent.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY ) {                             //keyCode = 86
                             Log.i("MyInfo", "keyEvent KEYCODE_MEDIA_PLAY")
                             restartCurrent()
@@ -116,7 +116,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
                             buildNotification(PlaybackStatus.PLAYING)
                             return true
                         } else {
-// End new
+//newcode - end
                             if (keyEvent.keyCode == KeyEvent.KEYCODE_MEDIA_NEXT ||                      //Home spkr keyCode = 127: keyEvent KEYCODE_MEDIA_NEXT
                                 keyEvent.keyCode == KeyEvent.KEYCODE_MEDIA_FAST_FORWARD
                             ) {                                                                         //Car Audio keyCode = 90
@@ -217,7 +217,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
         )
     }
 
-// Start new
+//newcode
 
     private fun restartCurrent() {
 
@@ -228,7 +228,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
         mediaPlayer!!.reset()
         initMediaPlayer()
     }
-// End new
+//newcode - end
 
     private fun skipToNext() {
         if (audioIndex == audioList!!.size - 1) {
@@ -305,7 +305,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
     }
 
     override fun onInfo(mp: MediaPlayer, what: Int, extra: Int): Boolean {
-        //Invoked to communicate some info.
+        //Invoked to communicate some information.
         return false
     }
 
@@ -366,9 +366,10 @@ class MediaPlayerService : Service(), OnCompletionListener,
             //skipToNext()          // original code to just play next song
         }
 
-        //new - Oct 2020 *****
-        //mMainActivity.title = "Playing song " + (audioIndex + 1) + " of " + audioList?.size
-        //end new
+        //newcode - Oct 2020 *****
+        mMainActivity.title = "Playing song " + (audioIndex + 1) + " of " + audioList?.size
+        Log.i("Song Count - 371", "audioIndex = $audioIndex, initialSongIndex = $startIndex")
+        //newcode - end
     }
 
     private fun playMedia() {
@@ -442,7 +443,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
     //The system calls this method when an activity, requests the service be started
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         try {
-            //new Nov 2020 *****
+            //newcode Nov 2020 *****
             startIndex =  intent.getIntExtra("StartIndex", 0)   //end
 
             //Load data from SharedPreferences
@@ -628,10 +629,11 @@ class MediaPlayerService : Service(), OnCompletionListener,
 //
 
         // Create a new Notification
-        //new Nov 2020 ******
+        //newcode Nov 2020 ******
         val songCount = (audioIndex - startIndex) + 1
-        Log.i("Song Count", "audioIndex = $audioIndex, initialSongIndex = $startIndex")
-        //end
+        mMainActivity.title = "Playing song " + (audioIndex + 1) + " of " + audioList?.size
+        Log.i("Song Count - 635", "audioIndex = $audioIndex, initialSongIndex = $startIndex")
+        //newcode - end
         val notificationBuilder =
             NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)   //todo - this is good for >= Build.VERSION_CODES.O
                 .setShowWhen(false) // Set the Notification style
@@ -648,7 +650,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
                 .setLargeIcon(largeIcon)
                 .setSmallIcon(android.R.drawable.stat_sys_headset)
                 // Set Notification content information
-                .setContentText("$songCount - " + activeAudio?.artist) //new Nov 2020 *****
+                .setContentText("$songCount - " + activeAudio?.artist) //newcode Nov 2020 *****
                 //.setContentTitle(activeAudio?.album)
                 //.setContentInfo(activeAudio?.title) // Add playback actions
                 .setContentTitle(activeAudio?.title)
@@ -779,9 +781,10 @@ class MediaPlayerService : Service(), OnCompletionListener,
         const val ACTION_PREVIOUS = "com.jb.audioapp2.ACTION_PREVIOUS"
         const val ACTION_NEXT = "com.jb.audioapp2.ACTION_NEXT"
         const val ACTION_STOP = "com.jb.audioapp2.ACTION_STOP"
-        //
-        const val ACTION_FAST_FORWARD = "com.jb.audioapp2.ACTION_FAST_FORWARD"
-        const val ACTION_REWIND = "com.jb.audioapp2.ACTION_REWIND"
+        //newcode
+        //const val ACTION_FAST_FORWARD = "com.jb.audioapp2.ACTION_FAST_FORWARD"
+        //const val ACTION_REWIND = "com.jb.audioapp2.ACTION_REWIND"
+        //newcode - end
 
         //AudioPlayer notification ID
         private const val NOTIFICATION_ID = 101
