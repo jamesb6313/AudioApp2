@@ -11,6 +11,7 @@ import android.content.IntentFilter
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.AudioManager.OnAudioFocusChangeListener
 import android.media.MediaPlayer
@@ -28,17 +29,15 @@ import android.telephony.TelephonyManager
 import android.util.Log
 import android.view.KeyEvent
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import java.io.IOException
 import java.util.*
 
-//import androidx.annotation.RequiresApi;
-
-
 class MediaPlayerService : Service(), OnCompletionListener,
     OnPreparedListener, OnErrorListener, OnSeekCompleteListener,
     OnInfoListener,
-    OnBufferingUpdateListener, OnAudioFocusChangeListener {
+    OnBufferingUpdateListener {
     // Binder given to clients
     private val iBinder: IBinder = LocalBinder()
     private var mediaPlayer: MediaPlayer? = null
@@ -65,6 +64,87 @@ class MediaPlayerService : Service(), OnCompletionListener,
     private var startIndex = 0
     var mMainActivity: MainActivity = MainActivity() //newcode - end
 
+
+    //
+    //https://www.geeksforgeeks.org/how-to-manage-audio-focus-in-android/
+    var mFocusRequest : AudioFocusRequest? = null
+
+    // Audio manager instance to manage or
+    // handle the audio interruptions
+    var mAudioManager : AudioManager? = null
+
+    // Audio attributes instance to set the playback
+    // attributes for the media player instance
+    // these attributes specify what type of media is
+    // to be played and used to callback the audioFocusChangeListener
+    var mPlaybackAttributes: AudioAttributes? = null
+
+    // media player is handled according to the
+    // change in the focus which Android system grants for
+    var mAudioFocusChangeListener =
+        OnAudioFocusChangeListener { focusState ->
+            //Invoked when the audio focus of the system is updated.
+            when (focusState) {
+                AudioManager.AUDIOFOCUS_GAIN -> {
+                    Log.d("MPService", "onChangeFocus GAIN - resume playback")
+                    // resume playback
+                    if (mediaPlayer == null) initMediaPlayer() else if (!mediaPlayer!!.isPlaying) mediaPlayer!!.start()
+                    mediaPlayer!!.setVolume(1.0f, 1.0f)
+                }
+                AudioManager.AUDIOFOCUS_LOSS -> {
+                    Log.d(
+                        "MPService",
+                        "onChangeFocus LOSS - Lost focus for an unbounded amount of time: stop playback and release media player"
+                    )
+                    // Lost focus for an unbounded amount of time: stop playback and release media player
+                    if (mediaPlayer!!.isPlaying) mediaPlayer!!.stop()
+                    mediaPlayer!!.release()
+                    mediaPlayer = null
+                }
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                    // Lost focus for a short time, but we have to stop
+                    // playback. We don't release the media player because playback
+                    // is likely to resume
+                    Log.d("MPService", "onChangeFocus LOSS_TRANSIENT - resume playback")
+                    if (mediaPlayer!!.isPlaying) mediaPlayer !!. pause ()
+                }
+                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                    // Lost focus for a short time, but it's ok to keep playing
+                    // at an attenuated level
+                    Log.d("MPService", "onChangeFocus LOSS_TRANSIENT_CAN_DUCK - Lost focus for a short time, but it's ok to keep playing at an attenuated level")
+                    if (mediaPlayer!!.isPlaying) mediaPlayer!!.setVolume(0.1f, 0.1f)
+                }
+            }
+        }
+
+//    private class AudioFocusHelper : OnAudioFocusChangeListener {
+//        private fun abandonAudioFocus() {
+//            mAudioManager.abandonAudioFocus(this)
+//        }
+//
+//        override fun onAudioFocusChange(focusChange: Int) {
+//            when (focusChange) {
+//                AudioManager.AUDIOFOCUS_GAIN -> {
+//                    if (mPlayOnAudioFocus && !isPlaying()) {
+//                        play()
+//                    } else if (isPlaying()) {
+//                        setVolume(MEDIA_VOLUME_DEFAULT)
+//                    }
+//                    mPlayOnAudioFocus = false
+//                }
+//                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> setVolume(MEDIA_VOLUME_DUCK)
+//                AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> if (isPlaying()) {
+//                    mPlayOnAudioFocus = true
+//                    PauseNode.pause()
+//                }
+//                AudioManager.AUDIOFOCUS_LOSS -> {
+//                    mAudioManager.abandonAudioFocus(this)
+//                    mPlayOnAudioFocus = false
+//                    stop()
+//                }
+//            }
+//        }
+//    }
     //
     //@RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @Throws(RemoteException::class)
@@ -334,14 +414,18 @@ class MediaPlayerService : Service(), OnCompletionListener,
         mediaPlayer!!.setOnInfoListener(this)
         //Reset so that the MediaPlayer is not pointing to another data source
         mediaPlayer!!.reset()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            mediaPlayer!!.setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-            )
-        }
-        //mediaPlayer!!.setAudioStreamType(AudioManager.STREAM_MUSIC)
+
+        Log.d("MPService","initMediaPlayer - mediaPlayer!!.reset() just called")
+        mediaPlayer!!.setAudioAttributes(
+            AudioAttributes.Builder()
+                .setFlags(AudioAttributes.FLAG_AUDIBILITY_ENFORCED)
+                .setLegacyStreamType(AudioManager.STREAM_MUSIC)
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+        )
+
+
         try {
             // Set the data source to the mediaFile location
             //mediaPlayer.setDataSource(mediaFile);
@@ -399,48 +483,15 @@ class MediaPlayerService : Service(), OnCompletionListener,
         }
     }
 
-    //used in onStart()
-    private fun requestAudioFocus(): Boolean {
-        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val result = audioManager!!.requestAudioFocus(
-            this,
-            AudioManager.STREAM_MUSIC,
-            AudioManager.AUDIOFOCUS_GAIN
-        )
-        return (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
-    }
-
     //used in onDestroy
     private fun removeAudioFocus(): Boolean {
+        Log.d("MPService","abandonAudioFocusRequest")
         return AudioManager.AUDIOFOCUS_REQUEST_GRANTED ==
-                audioManager!!.abandonAudioFocus(this)
-    }
-
-    override fun onAudioFocusChange(focusState: Int) {
-        //Invoked when the audio focus of the system is updated.
-        when (focusState) {
-            AudioManager.AUDIOFOCUS_GAIN -> {
-                // resume playback
-                if (mediaPlayer == null) initMediaPlayer() else if (!mediaPlayer!!.isPlaying) mediaPlayer!!.start()
-                mediaPlayer!!.setVolume(1.0f, 1.0f)
-            }
-            AudioManager.AUDIOFOCUS_LOSS -> {
-                // Lost focus for an unbounded amount of time: stop playback and release media player
-                if (mediaPlayer!!.isPlaying) mediaPlayer!!.stop()
-                mediaPlayer!!.release()
-                mediaPlayer = null
-            }
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ->                 // Lost focus for a short time, but we have to stop
-                // playback. We don't release the media player because playback
-                // is likely to resume
-                if (mediaPlayer!!.isPlaying) mediaPlayer!!.pause()
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK ->                 // Lost focus for a short time, but it's ok to keep playing
-                // at an attenuated level
-                if (mediaPlayer!!.isPlaying) mediaPlayer!!.setVolume(0.1f, 0.1f)
-        }
+                mAudioManager!!.abandonAudioFocusRequest(mFocusRequest!!)
     }
 
     //The system calls this method when an activity, requests the service be started
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         try {
             //newcode Nov 2020 *****
@@ -460,11 +511,34 @@ class MediaPlayerService : Service(), OnCompletionListener,
             stopSelf()
         }
 
+        mAudioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+        mPlaybackAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
+
+        mFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(mPlaybackAttributes!!)
+            .setAcceptsDelayedFocusGain(true)
+            .setOnAudioFocusChangeListener(mAudioFocusChangeListener)
+            .build()
+
         //Request audio focus
-        if (requestAudioFocus() == false) {
-            //Could not gain focus
-            stopSelf()
+        var focusRequest  = mAudioManager!!.requestAudioFocus(mFocusRequest!!)
+        when (focusRequest) {
+            AudioManager.AUDIOFOCUS_REQUEST_FAILED -> {
+                Log.d("MPService","//Could not gain focus - don't start playing")
+                stopSelf()
+            }
+            AudioManager.AUDIOFOCUS_REQUEST_GRANTED -> {
+                Log.d("MPService","//Continue - start playing")
+            }
         }
+//        if (requestAudioFocus() == false) {
+//            //Could not gain focus
+//            stopSelf()
+//        }
         if (mediaSessionManager == null) {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -485,8 +559,11 @@ class MediaPlayerService : Service(), OnCompletionListener,
 
     override fun onDestroy() {
         super.onDestroy()
+
+        Log.d("MPService","onDestroy MediaPlayerService")
         if (mediaPlayer != null) {
             stopMedia()
+            //mediaPlayer!!.reset()
             mediaPlayer!!.release()
         }
         removeAudioFocus()
@@ -563,6 +640,16 @@ class MediaPlayerService : Service(), OnCompletionListener,
 
     override fun onCreate() {
         super.onCreate()
+
+
+
+//        mFocusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+//            .setAudioAttributes(mPlaybackAttributes!!)
+//            .setAcceptsDelayedFocusGain(true)
+//            .setOnAudioFocusChangeListener(mAudioFocusChangeListener!!)
+//            .build()
+
+
         // Perform one-time setup procedures
 
         // Manage incoming phone calls during playback.
@@ -585,17 +672,17 @@ class MediaPlayerService : Service(), OnCompletionListener,
          */
 
         var notificationAction = android.R.drawable.ic_media_pause //needs to be initialized
-        var play_pauseAction: PendingIntent? = null
+        var playPauseAction: PendingIntent? = null
 
         //Build a new notification according to the current state of the MediaPlayer
         if (playbackStatus === PlaybackStatus.PLAYING) {
             notificationAction = android.R.drawable.ic_media_pause
             //create the pause action
-            play_pauseAction = playbackAction(1)
+            playPauseAction = playbackAction(1)
         } else if (playbackStatus === PlaybackStatus.PAUSED) {
             notificationAction = android.R.drawable.ic_media_play
             //create the play action
-            play_pauseAction = playbackAction(0)
+            playPauseAction = playbackAction(0)
         }
         val largeIcon = BitmapFactory.decodeResource(
             resources,
@@ -656,7 +743,7 @@ class MediaPlayerService : Service(), OnCompletionListener,
                 .setContentTitle(activeAudio?.title)
                 .setContentInfo(activeAudio?.album) // Add playback actions
                 .addAction(android.R.drawable.ic_media_previous, "previous", playbackAction(3))
-                .addAction(notificationAction, "pause", play_pauseAction)
+                .addAction(notificationAction, "pause", playPauseAction)
                 .addAction(
                     android.R.drawable.ic_media_next,
                     "next",

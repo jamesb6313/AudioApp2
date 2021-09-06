@@ -2,8 +2,12 @@ package com.jb.audioapp2
 
 //See: https://www.sitepoint.com/a-step-by-step-guide-to-building-an-android-audio-player-app/
 
+import android.Manifest
+import android.app.Activity
 import android.app.AlertDialog
 import android.content.*
+import android.database.Cursor
+import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.os.IBinder
@@ -21,6 +25,24 @@ import androidx.recyclerview.widget.RecyclerView
 import java.io.File
 import java.io.FileFilter
 import java.util.*
+import androidx.core.app.ActivityCompat
+
+import android.content.pm.PackageManager
+
+import androidx.core.content.ContextCompat
+
+import android.os.Build
+import android.content.DialogInterface
+import android.content.ContentResolver
+
+
+
+
+
+
+
+
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -39,7 +61,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        loadAudio()
+        audioList = ArrayList<AudioSongs>()
+
+        newLoadAudio()    //- works on my phone, but not in emulator 10
+        //loadAudio() //used to work before google update 08/2021
         setUpAdapter()
         initRecyclerView()
     }
@@ -117,10 +142,14 @@ class MainActivity : AppCompatActivity() {
 
     //loadAudio
     //////////////////////////////////////////////////////////
-/*    private val acceptedExtensions = arrayOf(
-            "mp3", "mp2", "wav", "flac", "ogg", "au", "snd", "mid", "midi", "kar"
-            , "mga", "aif", "aiff", "aifc", "m3u", "oga", "spx"
-    )*/
+    private fun newLoadAudio() {
+        try {
+            val count: Int = myNewGetAudioFileCount()
+        } catch (e: Exception) {
+            myShowErrorDlg("Error = " + e.message)
+// Cannot use Toast in catch stmt - Toast.makeText(this, " Error = " + e.message, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     private fun loadAudio() {
         val contentResolver = contentResolver
@@ -129,10 +158,10 @@ class MainActivity : AppCompatActivity() {
         val selection = MediaStore.Audio.Media.DATA + " like ? "
         val sortOrder = MediaStore.Audio.Media.TITLE + " ASC"
         val myProjection = arrayOf(
-                MediaStore.Audio.AudioColumns.DATA,
-                MediaStore.Audio.AudioColumns.TITLE,
-                MediaStore.Audio.AudioColumns.ALBUM,
-                MediaStore.Audio.ArtistColumns.ARTIST
+            MediaStore.Audio.AudioColumns.DATA,
+            MediaStore.Audio.AudioColumns.TITLE,
+            MediaStore.Audio.AudioColumns.ALBUM,
+            MediaStore.Audio.ArtistColumns.ARTIST
         )
         val myMusic = getExternalFilesDir(Environment.DIRECTORY_MUSIC)
         val myMusicDirName = myMusic.toString()
@@ -146,6 +175,8 @@ class MainActivity : AppCompatActivity() {
         val state = Environment.getExternalStorageState()
         var list: Array<File>? = null
         val file = File(rootSd)
+        //val file = File("mnt/sdcard/Music")
+
 
         list = file.listFiles(AudioFilter())
         //todo - catch list = null error. was related to MediaPlayerService - line 472 register_playNewAudio() see also line193 PlayAudio()
@@ -157,6 +188,7 @@ class MainActivity : AppCompatActivity() {
             for (i in list.indices) {
                 val name = list[i].name
                 val count: Int = myGetAudioFileCount(list[i].absolutePath)
+                //val count: Int = myGetAudioFileCount(file.absolutePath)
                 Log.e("Count : $count", list[i].absolutePath)
             }
         } catch (e: NullPointerException) {
@@ -172,47 +204,18 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    private fun myShowErrorDlg(errMsg: String) {
-        // build alert dialog
-        val dialogBuilder = AlertDialog.Builder(this)
+    private fun myNewGetAudioFileCount(): Int {
 
-        // set message of alert dialog
-        dialogBuilder.setMessage("Populate Music Folder with MP3 songs and try again.")
-            // if the dialog is cancelable
-            .setCancelable(false)
-            // positive button text and action
-            .setPositiveButton("Close App", DialogInterface.OnClickListener {
-                    dialog, id -> finish()
-            })
-            // negative button text and action
-//            .setNegativeButton("Continue", DialogInterface.OnClickListener {
-//                    dialog, id -> dialog.cancel()
-//            })
-
-        // create dialog box
-        val alert = dialogBuilder.create()
-        // set title for alert dialog box
-        alert.setTitle(errMsg)
-        // show alert dialog
-        alert.show()
-    }
-
-    private fun myGetAudioFileCount(dirPath: String): Int {
-//        val contentResolver = contentResolver
-
-        val selection = MediaStore.Audio.Media.DATA + " like ?"
-//        val projection =
-                arrayOf(MediaStore.Audio.Media.DATA)
-        val selectionArgs = arrayOf("$dirPath%")
-        val cursor = managedQuery(
+        val selection = MediaStore.Audio.Media.IS_MUSIC + " != 0"
+        val cursor = contentResolver.query(
                 MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                 null,
                 selection,
-                selectionArgs,
+                null,
                 null
         )
         if (cursor != null && cursor.count > 0) {
-            audioList = ArrayList<AudioSongs>()
+            //audioList = ArrayList<AudioSongs>()
             while (cursor.moveToNext()) {
                 val data =
                         cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA))
@@ -222,6 +225,42 @@ class MainActivity : AppCompatActivity() {
                         cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM))
                 val artist =
                         cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST))
+
+
+                // Save to audioList
+                audioList!!.add(AudioSongs(data, title, album, artist))
+            }
+            //Collections.shuffle(audioList)
+            audioList!!.shuffle()
+        }
+        val songCount = cursor!!.count
+        cursor.close()
+        return songCount
+    }
+
+    private fun myGetAudioFileCount(dirPath: String): Int {
+        val selection = MediaStore.Audio.Media.DATA + " like ? "
+        //val selection = MediaStore.Audio.Media.IS_MUSIC + " != 0"
+
+        val selectionArgs = arrayOf("$dirPath%")
+        val cursor = applicationContext.contentResolver.query(
+            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+            null,
+            selection,
+            selectionArgs,
+            null
+        )
+        if (cursor != null && cursor.count > 0) {
+            audioList = ArrayList<AudioSongs>()
+            while (cursor.moveToNext()) {
+                val data =
+                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.DATA))
+                val title =
+                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.TITLE))
+                val album =
+                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM))
+                val artist =
+                    cursor.getString(cursor.getColumnIndex(MediaStore.Audio.Media.ARTIST))
 
 
                 // Save to audioList
@@ -242,18 +281,6 @@ class MainActivity : AppCompatActivity() {
             ".wav",
             ".mp4"
         )
-/*        private val extension = arrayOf(
-                ".aac",
-                ".mp3",
-                ".wav",
-                ".ogg",
-                ".midi",
-                ".3gp",
-                ".mp4",
-                ".m4a",
-                ".amr",
-                ".flac"
-        )*/
 
         override fun accept(pathname: File): Boolean {
 
@@ -272,6 +299,32 @@ class MainActivity : AppCompatActivity() {
             return false
         }
     }
+
+    private fun myShowErrorDlg(errMsg: String) {
+        // build alert dialog
+        val dialogBuilder = AlertDialog.Builder(this)
+
+        // set message of alert dialog
+        dialogBuilder.setMessage("Populate Music Folder with MP3 songs and try again.")
+            // if the dialog is cancelable
+            .setCancelable(false)
+            // positive button text and action
+            .setPositiveButton("Close App", DialogInterface.OnClickListener {
+                    dialog, id -> finish()
+            })
+        // negative button text and action
+//            .setNegativeButton("Continue", DialogInterface.OnClickListener {
+//                    dialog, id -> dialog.cancel()
+//            })
+
+        // create dialog box
+        val alert = dialogBuilder.create()
+        // set title for alert dialog box
+        alert.setTitle(errMsg)
+        // show alert dialog
+        alert.show()
+    }
+
 
     //Service code
     /////////////////////////////////////////////////
@@ -292,45 +345,49 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playAudio(audioIndex: Int) {
-        //Check is service is active
-        if (!serviceBound) {
-            //newcode - Oct 2020 *****
-            initialSongIndex = audioIndex
-            Log.i("1 Song start index", "initialSongIndex = $initialSongIndex")
-            //end
+        try {
 
-            //Store Serializable audioList to SharedPreferences
-            val storage = StorageUtil(applicationContext)
-            storage.storeAudio(audioList)
-            storage.storeAudioIndex(audioIndex)
-            val playerIntent = Intent(this, MediaPlayerService::class.java)
-            playerIntent.putExtra("StartIndex", initialSongIndex) //newcode - Oct 2020 *****
-            startService(playerIntent)
-            bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE)
-        } else {
-            Log.i("2 Song start index", "initialSongIndex = $initialSongIndex")
 
-            //Store the new audioIndex to SharedPreferences
-            val storage = StorageUtil(applicationContext)
-            storage.storeAudioIndex(audioIndex)
+            //Check is service is active
+            if (!serviceBound) {
+                //newcode - Oct 2020 *****
+                initialSongIndex = audioIndex
+                Log.i("1 Song start index", "initialSongIndex = $initialSongIndex")
+                //end
 
-            //Service is active
-            //Send a broadcast to the service -> PLAY_NEW_AUDIO
-            val broadcastIntent = Intent(Broadcast_PLAY_NEW_AUDIO)
-            //todo - get rid of hard code see MediaPlayerService
-            //val broadcastIntent = Intent("com.jb.audioapp2.PlayNewAudio")
-            sendBroadcast(broadcastIntent)
+                //Store Serializable audioList to SharedPreferences
+                val storage = StorageUtil(applicationContext)
+                storage.storeAudio(audioList)
+                storage.storeAudioIndex(audioIndex)
+                val playerIntent = Intent(this, MediaPlayerService::class.java)
+                playerIntent.putExtra("StartIndex", initialSongIndex) //newcode - Oct 2020 *****
+                startService(playerIntent)
+                bindService(playerIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+            } else {
+                Log.i("2 Song start index", "initialSongIndex = $initialSongIndex")
+
+                //Store the new audioIndex to SharedPreferences
+                val storage = StorageUtil(applicationContext)
+                storage.storeAudioIndex(audioIndex)
+
+                //Service is active
+                //Send a broadcast to the service -> PLAY_NEW_AUDIO
+                val broadcastIntent = Intent(Broadcast_PLAY_NEW_AUDIO)
+                //todo - get rid of hard code see MediaPlayerService
+                //val broadcastIntent = Intent("com.jb.audioapp2.PlayNewAudio")
+                sendBroadcast(broadcastIntent)
+            }
+        } catch (e: NullPointerException)
+        {
+            Log.e("Main Activity PlayAudio Error", "Main Activity PlayAudio Error = NullPointerException")
+            myShowErrorDlg("Error = " + e.message)
         }
-
         //newcode - Oct 2020 *****
         this.title = "Playing song " + (audioIndex + 1) + " of " + audioList?.size
         //newcode - end
     }
 
-    override fun onSaveInstanceState(
-            outState: Bundle,
-            outPersistentState: PersistableBundle?
-    ) {
+    override fun onSaveInstanceState(outState: Bundle, outPersistentState: PersistableBundle) {
         super.onSaveInstanceState(outState, outPersistentState)
         outState.putBoolean("serviceStatus", serviceBound)
     }
@@ -342,10 +399,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (serviceBound) {
-            unbindService(serviceConnection)
-            //service is active
-            player!!.stopSelf()
-        }
+//        if (serviceBound) {
+//            unbindService(serviceConnection)
+//            //service is active
+//            player!!.stopSelf()
+//        }
     }
 }

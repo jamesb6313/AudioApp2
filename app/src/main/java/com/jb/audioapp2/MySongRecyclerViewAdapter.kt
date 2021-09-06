@@ -7,7 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 
-import kotlinx.android.synthetic.main.fragment_song.view.*
+//import kotlinx.android.synthetic.main.fragment_song.view.*
 
 class MySongRecyclerViewAdapter : BaseRecyclerViewAdapter<AudioSongs>(){
 
@@ -26,8 +26,8 @@ class MySongRecyclerViewAdapter : BaseRecyclerViewAdapter<AudioSongs>(){
 
     inner class MyViewHolder(mView: View) : RecyclerView.ViewHolder(mView),
         View.OnClickListener {
-        private val mTitleTextView: TextView = mView.title
-        private val mArtistTextView: TextView = mView.artist
+        private val mTitleTextView: TextView = mView.findViewById(R.id.title)
+        private val mArtistTextView: TextView = mView.findViewById(R.id.artist)
 
         init {
             mView.setOnClickListener(this)
@@ -45,8 +45,8 @@ class MySongRecyclerViewAdapter : BaseRecyclerViewAdapter<AudioSongs>(){
         }
 
         override fun onClick(v: View?) {
-            itemClickListener.onItemClick(adapterPosition, v)
-            Log.i("Testing info", "onClick() - current position is $adapterPosition")
+            itemClickListener.onItemClick(absoluteAdapterPosition, v)
+            Log.i("Testing info", "onClick() - current position is $absoluteAdapterPosition")
         }
     }
 }
